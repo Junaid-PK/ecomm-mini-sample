@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/sonner';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type PaginatedData, type Product } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -27,12 +28,22 @@ export default function ProductsIndex({ products, filters }: Props) {
         router.get('/products', { search }, { preserveState: true });
     };
 
-    const addToCart = (e: React.MouseEvent, productId: number) => {
+    const addToCart = (e: React.MouseEvent, productId: number, productName: string) => {
         e.preventDefault();
         e.stopPropagation();
         setProcessing(true);
         router.post('/cart', { product_id: productId, quantity: 1 }, {
             preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Added to cart', {
+                    description: `${productName} has been added to your cart.`,
+                });
+            },
+            onError: (errors) => {
+                toast.error('Failed to add to cart', {
+                    description: errors.quantity || 'Something went wrong.',
+                });
+            },
             onFinish: () => setProcessing(false),
         });
     };
@@ -129,7 +140,7 @@ export default function ProductsIndex({ products, filters }: Props) {
                                             <Button
                                                 type="button"
                                                 size="sm"
-                                                onClick={(e) => addToCart(e, product.id)}
+                                                onClick={(e) => addToCart(e, product.id, product.name)}
                                                 disabled={processing || product.stock_quantity <= 0}
                                             >
                                                 <ShoppingCart className="mr-1 h-4 w-4" />

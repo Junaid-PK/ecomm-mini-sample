@@ -1,9 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/sonner';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type CartItem } from '@/types';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Minus, Package, Plus, ShoppingBag, ShoppingCart, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
 interface Props {
     items: CartItem[];
@@ -16,24 +18,55 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function CartIndex({ items, total }: Props) {
-    const { patch, delete: destroy, post, processing } = useForm();
+    const [processing, setProcessing] = useState(false);
 
     const updateQuantity = (itemId: number, quantity: number) => {
-        patch(`/cart/${itemId}`, {
-            data: { quantity },
+        setProcessing(true);
+        router.patch(`/cart/${itemId}`, { quantity }, {
             preserveScroll: true,
-        } as any);
+            onSuccess: () => {
+                toast.success('Cart updated');
+            },
+            onError: (errors) => {
+                toast.error('Failed to update', {
+                    description: errors.quantity || 'Something went wrong.',
+                });
+            },
+            onFinish: () => setProcessing(false),
+        });
     };
 
-    const removeItem = (itemId: number) => {
-        destroy(`/cart/${itemId}`, {
+    const removeItem = (itemId: number, productName: string) => {
+        setProcessing(true);
+        router.delete(`/cart/${itemId}`, {
             preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Item removed', {
+                    description: `${productName} removed from cart.`,
+                });
+            },
+            onError: () => {
+                toast.error('Failed to remove item');
+            },
+            onFinish: () => setProcessing(false),
         });
     };
 
     const checkout = () => {
-        post('/orders', {
+        setProcessing(true);
+        router.post('/orders', {}, {
             preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Order placed!', {
+                    description: 'Your order has been placed successfully.',
+                });
+            },
+            onError: (errors) => {
+                toast.error('Checkout failed', {
+                    description: errors.cart || errors.stock || 'Something went wrong.',
+                });
+            },
+            onFinish: () => setProcessing(false),
         });
     };
 
@@ -104,7 +137,7 @@ export default function CartIndex({ items, total }: Props) {
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                    onClick={() => removeItem(item.id)}
+                                                    onClick={() => removeItem(item.id, item.product.name)}
                                                     disabled={processing}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -206,4 +239,3 @@ export default function CartIndex({ items, total }: Props) {
         </AppLayout>
     );
 }
-

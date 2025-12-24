@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/sonner';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type Product } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -26,6 +27,17 @@ export default function ProductShow({ product }: Props) {
         setProcessing(true);
         router.post('/cart', { product_id: product.id, quantity }, {
             preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Added to cart', {
+                    description: `${quantity} × ${product.name} added to your cart.`,
+                });
+                setQuantity(1);
+            },
+            onError: (errors) => {
+                toast.error('Failed to add to cart', {
+                    description: errors.quantity || 'Something went wrong.',
+                });
+            },
             onFinish: () => setProcessing(false),
         });
     };
