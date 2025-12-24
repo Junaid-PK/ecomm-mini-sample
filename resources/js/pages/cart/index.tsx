@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type CartItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { Minus, Package, Plus, ShoppingBag, ShoppingCart, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 interface Props {
     items: CartItem[];
@@ -18,10 +18,29 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function CartIndex({ items, total }: Props) {
-    const [processing, setProcessing] = useState(false);
+    const [processingItems, setProcessingItems] = useState<Set<number>>(new Set());
+    const [checkoutProcessing, setCheckoutProcessing] = useState(false);
+
+    const setItemProcessing = useCallback((itemId: number, isProcessing: boolean) => {
+        setProcessingItems(prev => {
+            const next = new Set(prev);
+            if (isProcessing) {
+                next.add(itemId);
+            } else {
+                next.delete(itemId);
+            }
+            return next;
+        });
+    }, []);
+
+    const isItemProcessing = useCallback((itemId: number) => {
+        return processingItems.has(itemId);
+    }, [processingItems]);
 
     const updateQuantity = (itemId: number, quantity: number) => {
-        setProcessing(true);
+        if (isItemProcessing(itemId)) return;
+        
+        setItemProcessing(itemId, true);
         router.patch(`/cart/${itemId}`, { quantity }, {
             preserveScroll: true,
             onSuccess: () => {
@@ -32,12 +51,14 @@ export default function CartIndex({ items, total }: Props) {
                     description: errors.quantity || 'Something went wrong.',
                 });
             },
-            onFinish: () => setProcessing(false),
+            onFinish: () => setItemProcessing(itemId, false),
         });
     };
 
     const removeItem = (itemId: number, productName: string) => {
-        setProcessing(true);
+        if (isItemProcessing(itemId)) return;
+        
+        setItemProcessing(itemId, true);
         router.delete(`/cart/${itemId}`, {
             preserveScroll: true,
             onSuccess: () => {
@@ -48,12 +69,14 @@ export default function CartIndex({ items, total }: Props) {
             onError: () => {
                 toast.error('Failed to remove item');
             },
-            onFinish: () => setProcessing(false),
+            onFinish: () => setItemProcessing(itemId, false),
         });
     };
 
     const checkout = () => {
-        setProcessing(true);
+        if (checkoutProcessing) return;
+        
+        setCheckoutProcessing(true);
         router.post('/orders', {}, {
             preserveScroll: true,
             onSuccess: () => {
@@ -66,9 +89,11 @@ export default function CartIndex({ items, total }: Props) {
                     description: errors.cart || errors.stock || 'Something went wrong.',
                 });
             },
-            onFinish: () => setProcessing(false),
+            onFinish: () => setCheckoutProcessing(false),
         });
     };
+
+    const anyProcessing = processingItems.size > 0 || checkoutProcessing;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -101,103 +126,103 @@ export default function CartIndex({ items, total }: Props) {
                     <div className="grid gap-6 lg:grid-cols-3">
                         <div className="lg:col-span-2">
                             <div className="divide-y rounded-xl border bg-card">
-                                {items.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="flex gap-4 p-4 transition-colors hover:bg-muted/50"
-                                    >
-                                        <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
-                                            {item.product.image_url ? (
-                                                <img
-                                                    src={item.product.image_url}
-                                                    alt={item.product.name}
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center">
-                                                    <Package className="text-muted-foreground h-8 w-8" />
-                                                </div>
-                                            )}
-                                        </div>
+                                {items.map((item) => {
+                                    const itemProcessing = isItemProcessing(item.id);
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className={`flex gap-4 p-4 transition-colors hover:bg-muted/50 ${itemProcessing ? 'opacity-60' : ''}`}
+                                        >
+                                            <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+                                                {item.product.image_url ? (
+                                                    <img
+                                                        src={item.product.image_url}
+                                                        alt={item.product.name}
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center">
+                                                        <Package className="text-muted-foreground h-8 w-8" />
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                        <div className="flex flex-1 flex-col">
-                                            <div className="flex items-start justify-between">
-                                                <div>
-                                                    <Link
-                                                        href={`/products/${item.product.id}`}
-                                                        className="font-medium hover:text-primary"
+                                            <div className="flex flex-1 flex-col">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <Link
+                                                            href={`/products/${item.product.id}`}
+                                                            className="font-medium hover:text-primary"
+                                                        >
+                                                            {item.product.name}
+                                                        </Link>
+                                                        <p className="text-muted-foreground text-sm">
+                                                            ${Number(item.product.price).toFixed(2)} each
+                                                        </p>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                        onClick={() => removeItem(item.id, item.product.name)}
+                                                        disabled={itemProcessing || anyProcessing}
                                                     >
-                                                        {item.product.name}
-                                                    </Link>
-                                                    <p className="text-muted-foreground text-sm">
-                                                        ${Number(item.product.price).toFixed(2)} each
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+
+                                                <div className="mt-auto flex items-center justify-between pt-2">
+                                                    <div className="flex items-center rounded-lg border">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-r-none"
+                                                            onClick={() =>
+                                                                updateQuantity(item.id, item.quantity - 1)
+                                                            }
+                                                            disabled={itemProcessing || anyProcessing || item.quantity <= 1}
+                                                        >
+                                                            <Minus className="h-3 w-3" />
+                                                        </Button>
+                                                        <Input
+                                                            type="number"
+                                                            min="1"
+                                                            max={item.product.stock_quantity}
+                                                            value={item.quantity}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value) || 1;
+                                                                const qty = Math.min(Math.max(1, val), item.product.stock_quantity);
+                                                                if (qty !== item.quantity) {
+                                                                    updateQuantity(item.id, qty);
+                                                                }
+                                                            }}
+                                                            disabled={itemProcessing || anyProcessing}
+                                                            className="h-8 w-12 rounded-none border-x-0 text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                        />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-l-none"
+                                                            onClick={() =>
+                                                                updateQuantity(item.id, item.quantity + 1)
+                                                            }
+                                                            disabled={
+                                                                itemProcessing ||
+                                                                anyProcessing ||
+                                                                item.quantity >= item.product.stock_quantity
+                                                            }
+                                                        >
+                                                            <Plus className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
+                                                    <p className="font-semibold">
+                                                        ${Number(item.subtotal).toFixed(2)}
                                                     </p>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                    onClick={() => removeItem(item.id, item.product.name)}
-                                                    disabled={processing}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-
-                                            <div className="mt-auto flex items-center justify-between pt-2">
-                                                <div className="flex items-center rounded-lg border">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 rounded-r-none"
-                                                        onClick={() =>
-                                                            updateQuantity(item.id, item.quantity - 1)
-                                                        }
-                                                        disabled={processing || item.quantity <= 1}
-                                                    >
-                                                        <Minus className="h-3 w-3" />
-                                                    </Button>
-                                                    <Input
-                                                        type="number"
-                                                        min="1"
-                                                        max={item.product.stock_quantity}
-                                                        value={item.quantity}
-                                                        onChange={(e) =>
-                                                            updateQuantity(
-                                                                item.id,
-                                                                Math.min(
-                                                                    Math.max(
-                                                                        1,
-                                                                        parseInt(e.target.value) || 1
-                                                                    ),
-                                                                    item.product.stock_quantity
-                                                                )
-                                                            )
-                                                        }
-                                                        className="h-8 w-12 rounded-none border-x-0 text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                    />
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 rounded-l-none"
-                                                        onClick={() =>
-                                                            updateQuantity(item.id, item.quantity + 1)
-                                                        }
-                                                        disabled={
-                                                            processing ||
-                                                            item.quantity >= item.product.stock_quantity
-                                                        }
-                                                    >
-                                                        <Plus className="h-3 w-3" />
-                                                    </Button>
-                                                </div>
-                                                <p className="font-semibold">
-                                                    ${Number(item.subtotal).toFixed(2)}
-                                                </p>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -224,9 +249,9 @@ export default function CartIndex({ items, total }: Props) {
                                     className="mt-6 w-full"
                                     size="lg"
                                     onClick={checkout}
-                                    disabled={processing}
+                                    disabled={anyProcessing}
                                 >
-                                    Checkout
+                                    {checkoutProcessing ? 'Processing...' : 'Checkout'}
                                 </Button>
                                 <Button asChild variant="outline" className="mt-3 w-full">
                                     <Link href="/products">Continue Shopping</Link>

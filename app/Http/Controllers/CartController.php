@@ -70,10 +70,13 @@ class CartController extends Controller
         return back()->with('success', 'Product added to cart.');
     }
 
-    public function update(Request $request, CartItem $cartItem): RedirectResponse
+    public function update(Request $request, int $cartItemId): RedirectResponse
     {
-        if ($cartItem->cart->user_id !== $request->user()->id) {
-            abort(403);
+        $cart = $request->user()->getOrCreateCart();
+        $cartItem = $cart->items()->find($cartItemId);
+
+        if (!$cartItem) {
+            return back()->with('success', 'Cart updated.');
         }
 
         $validated = $request->validate([
@@ -89,13 +92,14 @@ class CartController extends Controller
         return back()->with('success', 'Cart updated.');
     }
 
-    public function destroy(Request $request, CartItem $cartItem): RedirectResponse
+    public function destroy(Request $request, int $cartItemId): RedirectResponse
     {
-        if ($cartItem->cart->user_id !== $request->user()->id) {
-            abort(403);
-        }
+        $cart = $request->user()->getOrCreateCart();
+        $cartItem = $cart->items()->find($cartItemId);
 
-        $cartItem->delete();
+        if ($cartItem) {
+            $cartItem->delete();
+        }
 
         return back()->with('success', 'Item removed from cart.');
     }
