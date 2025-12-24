@@ -27,7 +27,9 @@ export default function ProductsIndex({ products, filters }: Props) {
         router.get('/products', { search }, { preserveState: true });
     };
 
-    const addToCart = (productId: number) => {
+    const addToCart = (e: React.MouseEvent, productId: number) => {
+        e.preventDefault();
+        e.stopPropagation();
         setProcessing(true);
         router.post('/cart', { product_id: productId, quantity: 1 }, {
             preserveScroll: true,
@@ -125,8 +127,9 @@ export default function ProductsIndex({ products, filters }: Props) {
                                                 </p>
                                             </div>
                                             <Button
+                                                type="button"
                                                 size="sm"
-                                                onClick={() => addToCart(product.id)}
+                                                onClick={(e) => addToCart(e, product.id)}
                                                 disabled={processing || product.stock_quantity <= 0}
                                             >
                                                 <ShoppingCart className="mr-1 h-4 w-4" />

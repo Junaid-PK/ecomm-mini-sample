@@ -20,7 +20,9 @@ export default function ProductShow({ product }: Props) {
         { title: product.name, href: `/products/${product.id}` },
     ];
 
-    const addToCart = () => {
+    const addToCart = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         setProcessing(true);
         router.post('/cart', { product_id: product.id, quantity }, {
             preserveScroll: true,
@@ -148,6 +150,7 @@ export default function ProductShow({ product }: Props) {
                                 </div>
 
                                 <Button
+                                    type="button"
                                     size="lg"
                                     className="w-full"
                                     onClick={addToCart}
