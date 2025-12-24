@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type PaginatedData, type Product } from '@/types';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Package, Search, ShoppingCart } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
@@ -20,7 +20,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function ProductsIndex({ products, filters }: Props) {
     const [search, setSearch] = useState(filters.search || '');
-    const { post, processing } = useForm<{ product_id: number; quantity: number }>();
+    const [processing, setProcessing] = useState(false);
 
     const handleSearch = (e: FormEvent) => {
         e.preventDefault();
@@ -28,10 +28,11 @@ export default function ProductsIndex({ products, filters }: Props) {
     };
 
     const addToCart = (productId: number) => {
-        post('/cart', {
-            data: { product_id: productId, quantity: 1 },
+        setProcessing(true);
+        router.post('/cart', { product_id: productId, quantity: 1 }, {
             preserveScroll: true,
-        } as any);
+            onFinish: () => setProcessing(false),
+        });
     };
 
     return (

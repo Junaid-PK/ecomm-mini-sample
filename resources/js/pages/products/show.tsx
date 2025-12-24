@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type Product } from '@/types';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { ArrowLeft, Minus, Package, Plus, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 
@@ -12,7 +12,7 @@ interface Props {
 
 export default function ProductShow({ product }: Props) {
     const [quantity, setQuantity] = useState(1);
-    const { post, processing } = useForm();
+    const [processing, setProcessing] = useState(false);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -21,10 +21,11 @@ export default function ProductShow({ product }: Props) {
     ];
 
     const addToCart = () => {
-        post('/cart', {
-            data: { product_id: product.id, quantity },
+        setProcessing(true);
+        router.post('/cart', { product_id: product.id, quantity }, {
             preserveScroll: true,
-        } as any);
+            onFinish: () => setProcessing(false),
+        });
     };
 
     const incrementQuantity = () => {
